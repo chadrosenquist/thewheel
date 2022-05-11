@@ -13,3 +13,9 @@ python thewheel [options]
     Ex: python thewheel --stock=INTL --delta=.3 --range=.03
 
 ```
+
+# Code/Design
+### Dependencies
+* requests - Used to call API.
+* responses - Used by unit tests to mock API.
+* beautifulsoup4 - Parse HTML.
