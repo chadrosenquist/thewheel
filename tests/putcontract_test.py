@@ -30,7 +30,7 @@ class PutContractTestCase(unittest.TestCase):
 
     def test_str(self):
         self.assertEqual(
-            'INTL : 2022-05-20 Premium=  75  1.67% Strike=  45.00 Cost= 4500 IV=0.37',
+            'INTL : 2022-05-20 Strike=  45.00 Premium=  75  1.67% Cost= 4500 IV=0.37 Delta=-0.32',
             str(self.contract)
         )
 

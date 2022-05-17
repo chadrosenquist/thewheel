@@ -11,6 +11,8 @@ COST_PADDING = 5
 COST_PRECISION = 0
 IV_PADDING = 4
 IV_PRECISION = 2
+DELTA_PADDING = 5
+DELTA_PRECISION = 2
 
 
 class PutContract:
@@ -51,11 +53,12 @@ class PutContract:
         """Class as a printable string."""
         return f'{self.stock:{STOCK_PADDING}}: ' \
                f'{self.expiration} ' \
+               f'Strike={self.strike:{STRIKE_PADDING}.{STRIKE_PRECISION}f} ' \
                f'Premium={self.premium:{PREMIUM_PADDING}.{PREMIUM_PRECISION}f}' \
                f' {self.premium_percent:{PREMIUM_PRECENT_PADDING}.{PREMIUM_PERCENT_PRECISION}f}% ' \
-               f'Strike={self.strike:{STRIKE_PADDING}.{STRIKE_PRECISION}f} ' \
                f'Cost={self.cost:{COST_PADDING}.{COST_PRECISION}f} ' \
-               f'IV={self.implied_vol:{IV_PADDING}.{IV_PRECISION}f}'
+               f'IV={self.implied_vol:{IV_PADDING}.{IV_PRECISION}f} ' \
+               f'Delta={self.delta:{DELTA_PADDING}.{DELTA_PRECISION}f}'
 
     def is_delta_in_range(self, desired_delta: float, delta_range: float) -> bool:
         """Returns true if delta is within the range."""

@@ -4,7 +4,7 @@ from datetime import date
 import requests
 from bs4 import BeautifulSoup
 
-import thewheel.putcontract
+from thewheel.putcontract import PutContract
 
 BASE_URL = 'https://www.op' \
            'tionis' \
@@ -13,24 +13,33 @@ BASE_URL = 'https://www.op' \
 HEADERS = {
     'User-Agent': 'Mozilla/5.0'
 }
+EXPECTED_HEADERS = ['Strike', 'Symbol', 'Bid', 'Ask', 'Price',
+                    'TPrice', 'Volume', 'OI', 'NS', '\xa0',
+                    'IVol', 'Delta', 'Theta', 'Gamma', 'Vega',
+                    'Rho', 'Strike']
+# Column indices must match with headers above.
+STRIKE_COLUMN = 0
+DELTA_COLUMN = 11
+IV_COLUMN = 10
+BID_COLUMN = 2
 
 
 class OptionsAPIException(Exception):
     """Options API Exception"""
 
 
-def get_html(symbol):
+def get_html(stock):
     """Gets the HTML document for a stock symbol.
 
-    :param str symbol: Stock symbol
+    :param str stock: Stock symbol
     :rtype: str
     :returns: HTML document
 
     ?? TODO - Errors and error checking! ??
     """
-    url = f'{BASE_URL}/{symbol}'
+    url = f'{BASE_URL}/{stock}'
     data = {
-        'symbol': symbol,
+        'symbol': stock,
         'chtype': '2',  # 0=Calls and Puts, 1=Calls, 2=Puts
         'nonstd': '-1',  # ?
         'greeks': '1',  # Set to 1 to return greeks (delta)
@@ -46,10 +55,10 @@ def get_html(symbol):
         'expiry': '',  # ?
         'op': 'chains',  # ?
         # 'date': '20220506',  # ?
-        'prevsym': symbol,  # ?
+        'prevsym': stock,  # ?
         'clear': '0',  # ?
         'v': '1',  # ?
-        'prevns': ['-1', symbol],  # ?
+        'prevns': ['-1', stock],  # ?
     }
 
     r = requests.post(url, data=data)
@@ -59,15 +68,19 @@ def get_html(symbol):
         return None
 
 
-def get_put_contracts(symbol):
+def get_put_contracts(stock):
     """Returns all the put contracts for a stock.
 
-    :param str symbol: Stock symbol
+    :param str stock: Stock symbol
     :rtype: list[thewheel.putcontract.PutContract]
     :raises OptionsAPIException: Error
     """
-    html_contents = get_html(symbol)
+    contracts = []
+    option_date = None
+
+    html_contents = get_html(stock)
     soup = BeautifulSoup(html_contents, 'html.parser')
+    parent_table = None
     for link in soup.find_all('a'):
         onclick = link.attrs.get('onclick', '')
         # Ex: onclick="document.getElementById('expiry').value='2022-05-13'
@@ -77,21 +90,50 @@ def get_put_contracts(symbol):
             # Find table it belongs to.
             # <table><tr><td><a href></td></tr></table>
             parent_table = link.parent.parent.parent
-            row_count = 0
-            for tr in parent_table.find_all('tr'):
-                # row 0: colspan
-                # row 1: expiry
-                # row 2: headers
-                # rows 3+: options
-                if row_count == 2:
-                    # Spot check the columns are in the same order.
-                    _check_header_columns(tr)
-                if row_count >= 3:
-                    # print(tr)
-                    pass
-                row_count += 1
+            break
 
-    return []
+    # Everything is in one big table.
+    expiry_found = False
+    header_found = False
+    for tr in parent_table.find_all('tr'):
+        # row 0: colspan
+        # row 1: expiry
+        # row 2: headers
+        # rows 3+: options
+        if not expiry_found:
+            td = tr.find_next('td')
+            link = td.find_next('a')
+            td_str = str(td)
+            if link and 'expiry' in td_str and 'getElementById' in td_str:
+                onclick = link.attrs.get('onclick', '')
+                if 'expiry' in str(onclick):
+                    option_date = date.fromisoformat(link.text)
+                    expiry_found = True
+                    header_found = False
+        elif expiry_found and not header_found:
+            header_found = True
+            _check_header_columns(tr)
+        else:
+            td = tr.find_next('td')
+
+            # Check if end of this expiry.
+            if td.text == '\xa0':
+                expiry_found = False
+                header_found = False
+
+            else:
+                column_values = []
+                for td in tr.find_all('td'):
+                    column_values.append(td.text)
+                strike = float(column_values[STRIKE_COLUMN])
+                delta = float(column_values[DELTA_COLUMN])
+                implied_vol = float(column_values[IV_COLUMN])
+                bid = float(column_values[BID_COLUMN])
+                contract = PutContract(stock, option_date,
+                                       strike, delta, implied_vol, bid)
+                contracts.append(contract)
+
+    return contracts
 
 
 def _check_header_columns(tr):
@@ -101,4 +143,9 @@ def _check_header_columns(tr):
     :param tr: Table row object
     :raises OptionsAPIException: If the columns are incorrect.
     """
-    print(tr)
+    actual_headers = []
+    for td in tr.find_all('td'):
+        actual_headers.append(td.text)
+    if EXPECTED_HEADERS != actual_headers:
+        raise OptionsAPIException(f'Expected headers:\n{EXPECTED_HEADERS}\n '
+                                  f'but got:\n{actual_headers}\ntr={tr}')
