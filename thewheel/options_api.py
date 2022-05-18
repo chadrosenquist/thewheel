@@ -28,6 +28,16 @@ class OptionsAPIException(Exception):
     """Options API Exception"""
 
 
+class _State:
+    """Simple class to keep track of the state, simplifying
+    parameter passing.
+    """
+    def __init__(self):
+        """Constructor"""
+        self.expiry_found = False
+        self.header_found = False
+
+
 def get_html(stock):
     """Gets the HTML document for a stock symbol.
 
@@ -76,29 +86,25 @@ def get_put_contracts(stock):
     :raises OptionsAPIException: Error
     """
     contracts = []
+    state = _State()
 
     html_contents = get_html(stock)
     soup = BeautifulSoup(html_contents, 'html.parser')
     option_date, parent_table = _find_option_chain_table(soup)
 
     # Everything is in one big table.
-    expiry_found = False
-    header_found = False
     for tr in parent_table.find_all('tr'):
         # row 0: colspan
         # row 1: expiry
         # row 2: headers
         # rows 3+: options
-        if not expiry_found:
-            expiry_found, header_found, option_date =\
-                _find_expiry(expiry_found, header_found, option_date, tr)
-        elif expiry_found and not header_found:
-            header_found = True
+        if not state.expiry_found:
+            option_date = _find_expiry(state, option_date, tr)
+        elif state.expiry_found and not state.header_found:
+            state.header_found = True
             _check_header_columns(tr)
         else:
-            expiry_found, header_found = \
-                _build_contract_from_row(contracts, expiry_found, header_found,
-                                         option_date, stock, tr)
+            _build_contract_from_row(contracts, state, option_date, stock, tr)
 
     return contracts
 
@@ -135,7 +141,7 @@ def _check_header_columns(tr):
                                   f'but got:\n{actual_headers}\ntr={tr}')
 
 
-def _find_expiry(expiry_found, header_found, option_date, tr):
+def _find_expiry(state, option_date, tr):
     """Finds the expiry row."""
     td = tr.find_next('td')
     link = td.find_next('a')
@@ -144,20 +150,18 @@ def _find_expiry(expiry_found, header_found, option_date, tr):
         onclick = link.attrs.get('onclick', '')
         if 'expiry' in str(onclick):
             option_date = date.fromisoformat(link.text)
-            expiry_found = True
-            header_found = False
-    return expiry_found, header_found, option_date
+            state.expiry_found = True
+            state.header_found = False
+    return option_date
 
 
-def _build_contract_from_row(contracts, expiry_found,
-                             header_found, option_date,
-                             stock, tr):
+def _build_contract_from_row(contracts, state, option_date, stock, tr):
     """Takes a row and returns a contract."""
     td = tr.find_next('td')
     # Check if end of this expiry.
     if td.text == '\xa0':
-        expiry_found = False
-        header_found = False
+        state.expiry_found = False
+        state.header_found = False
 
     else:
         column_values = []
@@ -170,4 +174,3 @@ def _build_contract_from_row(contracts, expiry_found,
         contract = PutContract(stock, option_date,
                                strike, delta, implied_vol, bid)
         contracts.append(contract)
-    return expiry_found, header_found
