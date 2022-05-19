@@ -134,7 +134,7 @@ def _check_header_columns(tr):
     :raises OptionsAPIException: If the columns are incorrect.
     """
     actual_headers = []
-    for td in tr.find_all('td'):
+    for td in tr.find_all('td', recursive=False):
         actual_headers.append(td.text)
     if EXPECTED_HEADERS != actual_headers:
         raise OptionsAPIException(f'Expected headers:\n{EXPECTED_HEADERS}\n '
@@ -165,7 +165,7 @@ def _build_contract_from_row(contracts, state, option_date, stock, tr):
 
     else:
         column_values = []
-        for td in tr.find_all('td'):
+        for td in tr.find_all('td', recursive=False):
             column_values.append(td.text)
         strike = float(column_values[STRIKE_COLUMN])
         delta = float(column_values[DELTA_COLUMN])
