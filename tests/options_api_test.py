@@ -59,7 +59,6 @@ class PutOptionsAPITestCase(OptionsAPITestCase):
         self.assertEqual('1', post_params['greeks'])
         self.assertEqual(stock, post_params['prevsym'])
         self.assertEqual(stock, post_params['prevns'])
-        print(parse.parse_qsl(request0.body))
 
     def test_intc(self):
         stock = 'INTC'

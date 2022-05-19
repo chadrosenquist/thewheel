@@ -19,3 +19,16 @@ python thewheel [options]
 * requests - Used to call API.
 * responses - Used by unit tests to mock API.
 * beautifulsoup4 - Parse HTML.
+* lxml - Optional.  Will try to use the BeautifulSoup lxml parser first.
+  If not installed, log a warning message and default to the slower
+  html parser.
+
+### Performance Testing
+To test performance, here is an example:
+```
+import cProfile
+
+with cProfile.Profile() as pr:
+    contracts = thewheel.options_api.get_put_contracts(stock)
+pr.print_stats()
+```

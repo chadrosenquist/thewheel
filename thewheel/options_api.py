@@ -2,7 +2,7 @@
 from datetime import date
 
 import requests
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, FeatureNotFound
 
 from thewheel.putcontract import PutContract
 
@@ -89,7 +89,13 @@ def get_put_contracts(stock):
     state = _State()
 
     html_contents = get_html(stock)
-    soup = BeautifulSoup(html_contents, 'html.parser')
+    try:
+        soup = BeautifulSoup(html_contents, 'lxml')
+    except FeatureNotFound as error:
+        print(f'Warning: lxml not found.  Defaulting to HTML parser. '
+              f'Will be slower: {str(error)}')
+        soup = BeautifulSoup(html_contents, 'html.parser')
+
     option_date, parent_table = _find_option_chain_table(soup)
 
     # Everything is in one big table.
