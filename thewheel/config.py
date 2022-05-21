@@ -1,6 +1,7 @@
 """Handles configuration."""
 import sys
 import getopt
+from enum import Enum
 
 import thewheel.version
 import thewheel.options_api
@@ -28,9 +29,18 @@ def _print_help():
     print('    Ex: python thewheel --call --stock=INTC --delta=.3 --range=.03')
 
 
+class OptionType(Enum):
+    """Represents the option type."""
+    PUT = 'put'
+    CALL = 'call'
+
+
 class Config:
     """Read configuration in from command line and holds it."""
     def __init__(self, argv):
+        put = False
+        call = False
+        self.option_type = None
         self.stock = None
         self.delta = DEFAULT_DELTA
         self.delta_range = DEFAULT_RANGE
@@ -38,8 +48,9 @@ class Config:
 
         # Handle command line options.
         options, _ = getopt.getopt(argv,
-                                   'vhs:d:r:',
-                                   ['version', 'help', 'stock=', 'delta=', 'range=', 'strike='])
+                                   'vhcps:d:r:',
+                                   ['version', 'help', 'call', 'put',
+                                    'stock=', 'delta=', 'range=', 'strike='])
         for option, opt_value in options:
             if option in ('-v', '--version'):
                 _print_version()
@@ -47,6 +58,10 @@ class Config:
             elif option in ('-h', '--help'):
                 _print_help()
                 sys.exit(1)
+            elif option in ('-c', '--call'):
+                call = True
+            elif option in ('-p', '--put'):
+                put = True
             elif option in ('-s', '--stock'):
                 self.stock = opt_value
             elif option in ('-d', '--delta'):
@@ -57,10 +72,26 @@ class Config:
                 self.strike_range = int(opt_value)
 
         if self.stock is None:
+            print('\nMissing required stock (-s|--stock).\n')
             _print_help()
             sys.exit(1)
 
+        if not put and not call:
+            print('\nMissing required call and put (-c|--call or -p|--put).\n')
+            _print_help()
+            sys.exit(1)
+
+        if put and call:
+            print('\nCannot specifiy both call and put (-c|--call and -p|--put).\n')
+            _print_help()
+            sys.exit(1)
+
+        if put:
+            self.option_type = OptionType.PUT
+        else:
+            self.option_type = OptionType.CALL
+
     def __str__(self) -> str:
         """Returns string representation."""
-        return f'stock={self.stock} delta={self.delta} range={self.delta_range} ' \
+        return f'{self.option_type.value} stock={self.stock} delta={self.delta} range={self.delta_range} ' \
                f'strike={self.strike_range}'
