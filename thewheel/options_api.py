@@ -23,6 +23,11 @@ DELTA_COLUMN = 11
 IV_COLUMN = 10
 BID_COLUMN = 2
 
+STRIKE_MIDDLE = 24
+STRIKE_RANGE_MINIMUM = 5
+STRIKE_RANGE_MAXIMUM = 23
+DEFAULT_STRIKE_RANGE = 14
+
 
 class OptionsAPIException(Exception):
     """Options API Exception"""
@@ -38,15 +43,18 @@ class _State:
         self.header_found = False
 
 
-def get_html(stock):
+def get_html(stock, strike_range):
     """Gets the HTML document for a stock symbol.
 
     :param str stock: Stock symbol
+    :param int strike_range: Strike range
     :rtype: str
     :returns: HTML document
 
     ?? TODO - Errors and error checking! ??
     """
+    min_strike, max_strike = get_strike_range(strike_range)
+
     url = f'{BASE_URL}/{stock}'
     data = {
         'symbol': stock,
@@ -55,8 +63,10 @@ def get_html(stock):
         'greeks': '1',  # Set to 1 to return greeks (delta)
         # 'mn1min': '1',    # Minimum strike range.
         # 'mn1max': '47',   # Maximum strike range.
-        'mn1min': '8',  # Minimum strike range.
-        'mn1max': '38',  # Maximum strike range.
+        # 'mn1min': '8',  # Minimum strike range.
+        # 'mn1max': '38',  # Maximum strike range.
+        'mn1min': str(min_strike),
+        'mn1max': str(max_strike),
         'expmin': '0',  # ?
         'expmax': '2',  # ?
         'ovmin': '0',  # ?
@@ -78,17 +88,20 @@ def get_html(stock):
         return None
 
 
-def get_put_contracts(stock):
+def get_put_contracts(stock, strike_range=None):
     """Returns all the put contracts for a stock.
 
     :param str stock: Stock symbol
+    :param int strike_range: Strike range
     :rtype: list[thewheel.putcontract.PutContract]
     :raises OptionsAPIException: Error
     """
+    if strike_range is None:
+        strike_range = DEFAULT_STRIKE_RANGE
     contracts = []
     state = _State()
 
-    html_contents = get_html(stock)
+    html_contents = get_html(stock, strike_range)
     try:
         soup = BeautifulSoup(html_contents, 'lxml')
     except FeatureNotFound as error:
@@ -180,3 +193,21 @@ def _build_contract_from_row(contracts, state, option_date, stock, tr):
         contract = PutContract(stock, option_date,
                                strike, delta, implied_vol, bid)
         contracts.append(contract)
+
+
+def get_strike_range(strike_range):
+    """Returns min and max strike and checks if valid.
+
+    :param int strike_range: Strike range.
+    :rtype: int,int
+    :returns: minimum and maximum strikes.
+    :raises OptionsAPIException: If out of range.
+    """
+    if strike_range > STRIKE_RANGE_MAXIMUM or \
+            strike_range < STRIKE_RANGE_MINIMUM:
+        raise OptionsAPIException(f'Strike range of {strike_range} is '
+                                  f'not with range of {STRIKE_RANGE_MINIMUM} '
+                                  f'to {STRIKE_RANGE_MAXIMUM}')
+    min_strike = STRIKE_MIDDLE - strike_range
+    max_strike = STRIKE_MIDDLE + strike_range
+    return min_strike, max_strike

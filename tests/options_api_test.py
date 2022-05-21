@@ -47,7 +47,7 @@ class PutOptionsAPITestCase(OptionsAPITestCase):
         responses.add(responses.POST, url,
                       body='<html></html>')
 
-        thewheel.options_api.get_html(stock)
+        thewheel.options_api.get_html(stock, 12)
 
         self.assertEqual(1, len(responses.calls))
         request0 = responses.calls[0].request
@@ -59,6 +59,8 @@ class PutOptionsAPITestCase(OptionsAPITestCase):
         self.assertEqual('1', post_params['greeks'])
         self.assertEqual(stock, post_params['prevsym'])
         self.assertEqual(stock, post_params['prevns'])
+        self.assertEqual('12', post_params['mn1min'])
+        self.assertEqual('36', post_params['mn1max'])
 
     def test_intc(self):
         stock = 'INTC'
@@ -128,6 +130,29 @@ class PutOptionsAPITestCase(OptionsAPITestCase):
                    return_value=self.invalid_header_html):
             with self.assertRaises(thewheel.options_api.OptionsAPIException):
                 thewheel.options_api.get_put_contracts(stock)
+
+
+class StrikeRangeTestCase(unittest.TestCase):
+    """Tests check_strike_range."""
+    def test_min(self):
+        min_strike, max_strike = \
+            thewheel.options_api.get_strike_range(5)
+        self.assertEqual(19, min_strike)
+        self.assertEqual(29, max_strike)
+
+    def test_max(self):
+        min_strike, max_strike = \
+            thewheel.options_api.get_strike_range(23)
+        self.assertEqual(1, min_strike)
+        self.assertEqual(47, max_strike)
+
+    def test_too_low(self):
+        with self.assertRaises(thewheel.options_api.OptionsAPIException):
+            thewheel.options_api.get_strike_range(thewheel.options_api.STRIKE_RANGE_MINIMUM - 1)
+
+    def test_too_high(self):
+        with self.assertRaises(thewheel.options_api.OptionsAPIException):
+            thewheel.options_api.get_strike_range(thewheel.options_api.STRIKE_RANGE_MAXIMUM + 1)
 
 
 if __name__ == '__main__':
