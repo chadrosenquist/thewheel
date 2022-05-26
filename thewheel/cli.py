@@ -15,6 +15,7 @@ def main(argv):
     try:
         contracts = \
             thewheel.options_api.get_put_contracts(the_config.stock,
+                                                   the_config.option_type,
                                                    the_config.strike_range)
     except thewheel.options_api.OptionsAPIException as error:
         print(str(error))

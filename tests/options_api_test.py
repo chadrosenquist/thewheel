@@ -9,6 +9,7 @@ import responses
 
 import thewheel.options_api
 from thewheel.putcontract import PutContract
+from thewheel.config import OptionType
 
 
 class OptionsAPITestCase(unittest.TestCase):
@@ -47,7 +48,7 @@ class PutOptionsAPITestCase(OptionsAPITestCase):
         responses.add(responses.POST, url,
                       body='<html></html>')
 
-        thewheel.options_api.get_html(stock, 12)
+        thewheel.options_api.get_html(stock, OptionType.PUT, 12)
 
         self.assertEqual(1, len(responses.calls))
         request0 = responses.calls[0].request
@@ -67,7 +68,8 @@ class PutOptionsAPITestCase(OptionsAPITestCase):
 
         with patch('thewheel.options_api.get_html',
                    return_value=self.intc_html):
-            contracts = thewheel.options_api.get_put_contracts(stock)
+            contracts = thewheel.options_api.get_put_contracts(stock,
+                                                               OptionType.PUT)
 
         # Spot check some of the contracts.
         contract1 = contracts[3]
@@ -87,7 +89,8 @@ class PutOptionsAPITestCase(OptionsAPITestCase):
 
         with patch('thewheel.options_api.get_html',
                    return_value=self.nclh_html):
-            contracts = thewheel.options_api.get_put_contracts(stock)
+            contracts = thewheel.options_api.get_put_contracts(stock,
+                                                               OptionType.PUT)
 
         # Spot check some of the contracts.
         contract1 = contracts[0]
@@ -107,7 +110,8 @@ class PutOptionsAPITestCase(OptionsAPITestCase):
 
         with patch('thewheel.options_api.get_html',
                    return_value=self.spy_html):
-            contracts = thewheel.options_api.get_put_contracts(stock)
+            contracts = thewheel.options_api.get_put_contracts(stock,
+                                                               OptionType.PUT)
 
         # Spot check some of the contracts.
         contract1 = contracts[5]
@@ -129,7 +133,60 @@ class PutOptionsAPITestCase(OptionsAPITestCase):
         with patch('thewheel.options_api.get_html',
                    return_value=self.invalid_header_html):
             with self.assertRaises(thewheel.options_api.OptionsAPIException):
-                thewheel.options_api.get_put_contracts(stock)
+                thewheel.options_api.get_put_contracts(stock,
+                                                       OptionType.PUT)
+
+
+class CallOptionsAPITestCase(OptionsAPITestCase):
+    """Tests puts."""
+    @classmethod
+    def setUpClass(cls) -> None:
+        """Read in HTML files."""
+        cls.intc_html = cls._get_html_contents('call_INTC')
+
+    @responses.activate
+    def test_get_html(self):
+        """Verify the URL and POST parameters are correct."""
+        stock = 'INTC'
+        url = f'{thewheel.options_api.BASE_URL}/{stock}'
+        responses.add(responses.POST, url,
+                      body='<html></html>')
+
+        thewheel.options_api.get_html(stock, OptionType.CALL, 12)
+
+        self.assertEqual(1, len(responses.calls))
+        request0 = responses.calls[0].request
+        self.assertEqual(url, request0.url)
+        self.assertEqual('POST', request0.method)
+        post_params = dict(parse.parse_qsl(request0.body))
+        self.assertEqual(stock, post_params['symbol'])
+        self.assertEqual('1', post_params['chtype'])  # Calls only
+        self.assertEqual('1', post_params['greeks'])
+        self.assertEqual(stock, post_params['prevsym'])
+        self.assertEqual(stock, post_params['prevns'])
+        self.assertEqual('12', post_params['mn1min'])
+        self.assertEqual('36', post_params['mn1max'])
+
+    def test_intc(self):
+        stock = 'INTC'
+
+        with patch('thewheel.options_api.get_html',
+                   return_value=self.intc_html):
+            contracts = thewheel.options_api.get_put_contracts(stock,
+                                                               OptionType.CALL)
+
+        # Spot check some of the contracts.
+        contract1 = contracts[3]
+        expected1 = PutContract(stock, date(2022, 5, 27), 38.0, 0.9977, 0.3611, 3.6)
+        self._check_contract(expected1, contract1)
+
+        contract2 = contracts[40]
+        expected2 = PutContract(stock, date(2022, 6, 3), 42.0, 0.4563, 0.3442, 0.77)
+        self._check_contract(expected2, contract2)
+
+        contract3 = contracts[133]
+        expected3 = PutContract(stock, date(2022, 7, 1), 42.0, 0.4942, 0.3444, 1.65)
+        self._check_contract(expected3, contract3)
 
 
 class StrikeRangeTestCase(unittest.TestCase):
@@ -153,6 +210,17 @@ class StrikeRangeTestCase(unittest.TestCase):
     def test_too_high(self):
         with self.assertRaises(thewheel.options_api.OptionsAPIException):
             thewheel.options_api.get_strike_range(thewheel.options_api.STRIKE_RANGE_MAXIMUM + 1)
+
+
+class CHTypeTestCase(unittest.TestCase):
+    """Test get_chtype"""
+    def test_call(self):
+        result = thewheel.options_api.get_chtype(OptionType.CALL)
+        self.assertEqual('1', result)
+
+    def test_put(self):
+        result = thewheel.options_api.get_chtype(OptionType.PUT)
+        self.assertEqual('2', result)
 
 
 if __name__ == '__main__':

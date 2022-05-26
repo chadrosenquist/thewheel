@@ -5,6 +5,7 @@ import requests
 from bs4 import BeautifulSoup, FeatureNotFound
 
 from thewheel.putcontract import PutContract
+import thewheel.config
 
 BASE_URL = 'https://www.op' \
            'tionis' \
@@ -43,10 +44,11 @@ class _State:
         self.header_found = False
 
 
-def get_html(stock, strike_range):
+def get_html(stock, option_type, strike_range):
     """Gets the HTML document for a stock symbol.
 
     :param str stock: Stock symbol
+    :param thewheel.config.OptionType option_type: Put or call.
     :param int strike_range: Strike range
     :rtype: str
     :returns: HTML document
@@ -54,11 +56,12 @@ def get_html(stock, strike_range):
     ?? TODO - Errors and error checking! ??
     """
     min_strike, max_strike = get_strike_range(strike_range)
+    chtype = get_chtype(option_type)
 
     url = f'{BASE_URL}/{stock}'
     data = {
         'symbol': stock,
-        'chtype': '2',  # 0=Calls and Puts, 1=Calls, 2=Puts
+        'chtype': chtype,  # 0=Calls and Puts, 1=Calls, 2=Puts
         'nonstd': '-1',  # ?
         'greeks': '1',  # Set to 1 to return greeks (delta)
         # 'mn1min': '1',    # Minimum strike range.
@@ -88,10 +91,11 @@ def get_html(stock, strike_range):
         return None
 
 
-def get_put_contracts(stock, strike_range=None):
+def get_put_contracts(stock, option_type, strike_range=None):
     """Returns all the put contracts for a stock.
 
     :param str stock: Stock symbol
+    :param thewheel.config.OptionType option_type: Put or call.
     :param int strike_range: Strike range
     :rtype: list[thewheel.putcontract.PutContract]
     :raises OptionsAPIException: Error
@@ -101,7 +105,7 @@ def get_put_contracts(stock, strike_range=None):
     contracts = []
     state = _State()
 
-    html_contents = get_html(stock, strike_range)
+    html_contents = get_html(stock, option_type, strike_range)
     try:
         soup = BeautifulSoup(html_contents, 'lxml')
     except FeatureNotFound as error:
@@ -211,3 +215,16 @@ def get_strike_range(strike_range):
     min_strike = STRIKE_MIDDLE - strike_range
     max_strike = STRIKE_MIDDLE + strike_range
     return min_strike, max_strike
+
+
+def get_chtype(option_type):
+    """Converts the option_type to a string used in the REST call.
+
+    :param thewheel.config.OptionType option_type: Put or call.
+    :rtype: str
+    :returns: Option type.
+    """
+    if option_type is thewheel.config.OptionType.PUT:
+        return '2'
+    else:
+        return '1'
