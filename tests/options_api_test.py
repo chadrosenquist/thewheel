@@ -41,7 +41,7 @@ class PutOptionsAPITestCase(OptionsAPITestCase):
         cls.invalid_header_html = cls._get_html_contents('put_invalid_header')
 
     @responses.activate
-    def test_get_html(self):
+    def test_post_html(self):
         """Verify the URL and POST parameters are correct."""
         stock = 'INTC'
         url = f'{thewheel.options_api.BASE_URL}/{stock}'
@@ -54,6 +54,11 @@ class PutOptionsAPITestCase(OptionsAPITestCase):
         request0 = responses.calls[0].request
         self.assertEqual(url, request0.url)
         self.assertEqual('POST', request0.method)
+        for key in thewheel.options_api.HTTP_HEADERS.keys():
+            self.assertIn(key, request0.headers,
+                          f'Failed to find header {key}')
+            self.assertEqual(thewheel.options_api.HTTP_HEADERS[key],
+                             request0.headers[key])
         post_params = dict(parse.parse_qsl(request0.body))
         self.assertEqual(stock, post_params['symbol'])
         self.assertEqual('2', post_params['chtype'])  # Puts only

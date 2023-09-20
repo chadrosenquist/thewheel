@@ -11,7 +11,7 @@ BASE_URL = 'https://www.op' \
            'tionis' \
            'tic' \
            's.com/quotes/stock-option-chains'
-HEADERS = {
+HTTP_HEADERS = {
     'User-Agent': 'Mozilla/5.0'
 }
 EXPECTED_HEADERS = ['Strike', 'Symbol', 'Bid', 'Ask', 'Price',
@@ -84,7 +84,7 @@ def get_html(stock, option_type, strike_range):
         'prevns': ['-1', stock],  # ?
     }
 
-    r = requests.post(url, data=data)
+    r = requests.post(url, data=data, headers=HTTP_HEADERS)
     if r.ok:
         return r.text
     else:
